@@ -1,10 +1,11 @@
 export default async function handler(req, res) {
   const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN;
   const LIST_ID = process.env.HUBSPOT_LIST_ID;
-  
+
   if (req.method !== 'POST') return res.status(405).end();
 
   const { email } = req.body;
+  if (!email) return res.status(400).json({ valid: false, error: 'Missing email' });
 
   try {
     // Search for the contact by email
@@ -22,10 +23,15 @@ export default async function handler(req, res) {
     });
 
     const searchData = await searchResponse.json();
+    console.log('Search response:', JSON.stringify(searchData, null, 2));
+
     const contact = searchData.results?.[0];
-    if (!contact) return res.json({ valid: false });
+    if (!contact) {
+      return res.json({ valid: false, error: 'Contact not found' });
+    }
 
     const contactId = contact.id;
+    console.log('Contact ID:', contactId);
 
     // Check list membership
     const listResponse = await fetch(`https://api.hubapi.com/contacts/v1/lists/${LIST_ID}/contacts/vids`, {
@@ -33,11 +39,13 @@ export default async function handler(req, res) {
     });
 
     const listData = await listResponse.json();
-    const isInList = listData.vids.includes(parseInt(contactId));
+    console.log('List response:', JSON.stringify(listData, null, 2));
+
+    const isInList = listData.vids?.includes(parseInt(contactId));
 
     return res.json({ valid: isInList });
   } catch (err) {
-    console.error(err);
+    console.error('Error in check-nominee:', err);
     return res.status(500).json({ valid: false, error: 'Server error' });
   }
 }
