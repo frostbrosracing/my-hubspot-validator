@@ -1,6 +1,5 @@
 export default async function handler(req, res) {
   const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN;
-  const LIST_ID = process.env.HUBSPOT_LIST_ID;
 
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -8,7 +7,7 @@ export default async function handler(req, res) {
   if (!email) return res.status(400).json({ valid: false, error: 'Missing email' });
 
   try {
-    // Search for the contact by email
+    // Search for the contact by email and request the `aces_eligible` property
     const searchResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
       method: 'POST',
       headers: {
@@ -18,7 +17,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         filterGroups: [{
           filters: [{ propertyName: 'email', operator: 'EQ', value: email }]
-        }]
+        }],
+        properties: ['aces_eligible']
       })
     });
 
@@ -30,20 +30,9 @@ export default async function handler(req, res) {
       return res.json({ valid: false, error: 'Contact not found' });
     }
 
-    const contactId = contact.id;
-    console.log('Contact ID:', contactId);
+    const isEligible = contact.properties?.aces_eligible === 'true';
 
-    // Check list membership
-    const listResponse = await fetch(`https://api.hubapi.com/contacts/v1/lists/${LIST_ID}/contacts/vids`, {
-      headers: { 'Authorization': `Bearer ${HUBSPOT_TOKEN}` }
-    });
-
-    const listData = await listResponse.json();
-    console.log('List response:', JSON.stringify(listData, null, 2));
-
-    const isInList = listData.vids?.includes(parseInt(contactId));
-
-    return res.json({ valid: isInList });
+    return res.json({ valid: isEligible });
   } catch (err) {
     console.error('Error in check-nominee:', err);
     return res.status(500).json({ valid: false, error: 'Server error' });
