@@ -1,40 +1,33 @@
+// File: api/check-nominee.js
+
 export default async function handler(req, res) {
-  const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN;
+  // Check if the method is POST
+  if (req.method === 'POST') {
+    try {
+      const { email } = req.body;  // Extract the email from the request body
 
-  if (req.method !== 'POST') return res.status(405).end();
+      // Perform your nominee eligibility check based on the email here
+      // Example: check if the email is in your list and eligible
+      const isEligible = await checkNomineeEligibility(email); // Replace with your logic
 
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ valid: false, error: 'Missing email' });
-
-  try {
-    // Search for the contact by email and request the `aces_eligible` property
-    const searchResponse = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        filterGroups: [{
-          filters: [{ propertyName: 'email', operator: 'EQ', value: email }]
-        }],
-        properties: ['aces_eligible']
-      })
-    });
-
-    const searchData = await searchResponse.json();
-    console.log('Search response:', JSON.stringify(searchData, null, 2));
-
-    const contact = searchData.results?.[0];
-    if (!contact) {
-      return res.json({ valid: false, error: 'Contact not found' });
+      if (isEligible) {
+        return res.status(200).json({ valid: true }); // Send valid response
+      } else {
+        return res.status(200).json({ valid: false }); // Send invalid response
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      return res.status(500).json({ error: 'Internal Server Error' }); // Handle server errors
     }
-
-    const isEligible = contact.properties?.aces_eligible === 'true';
-
-    return res.json({ valid: isEligible });
-  } catch (err) {
-    console.error('Error in check-nominee:', err);
-    return res.status(500).json({ valid: false, error: 'Server error' });
+  } else {
+    // If the method is not POST, respond with 405 Method Not Allowed
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
+}
+
+// Example of a function to check eligibility
+async function checkNomineeEligibility(email) {
+  // Perform your logic here to check the eligibility
+  // For example, querying the database, checking against a list, etc.
+  return true; // Assuming true for this example
 }
